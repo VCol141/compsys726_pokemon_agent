@@ -23,6 +23,7 @@ class PyboyEnvironment(metaclass=ABCMeta):
     ) -> None:
         self.task = task
         self.domain = domain
+        self.current_action = None
 
         path = f"{Path.home()}/cares_rl_configs/{self.domain}"
         self.rom_path = f"{path}/{rom_name}"
@@ -73,12 +74,17 @@ class PyboyEnvironment(metaclass=ABCMeta):
         # Convert to BGR for use with OpenCV
         frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         return frame
+    
+    def grab_action(self):
+        return self.current_action
 
     def game_area(self) -> np.ndarray:
         return self.pyboy.game_area()
 
     def step(self, action) -> tuple:
         self.steps += 1
+
+        self.current_action = action
 
         self._run_action_on_emulator(action)
 
