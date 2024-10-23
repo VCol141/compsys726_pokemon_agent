@@ -146,15 +146,15 @@ class PokemonBrock(PokemonEnvironment):
 
         # Score changes in levels, HP, XP, badges, and money
         if current_levels_sum > self.current_level:
-            total_score += (current_levels_sum - self.current_level) * 10
+            total_score += (current_levels_sum - self.current_level) * 0.5
         if current_hp > self.current_hp:
-            total_score += (current_hp - self.current_hp) * 10
+            total_score += (current_hp - self.current_hp) * 0.5
         if current_xp > self.current_xp:
-            total_score += (current_xp - self.current_xp) * 10
+            total_score += (current_xp - self.current_xp) * 0.5
         if current_badges > self.current_badges:
-            total_score += (current_badges - self.current_badges) * 10
+            total_score += (current_badges - self.current_badges) * 0.5
         if current_money > self.current_money:
-            total_score += (current_money - self.current_money) * 10
+            total_score += (current_money - self.current_money) * 0.5
 
         self.update_game_stats(
             current_levels_sum, current_hp, current_xp, current_badges, current_money)
@@ -225,11 +225,16 @@ class PokemonBrock(PokemonEnvironment):
             current_gradient = (self.total_scoring - self.previous_total_scoring) / (self.total_distance - self.previous_total_distance)
             # Update running average
             self.gradient_counts += 1
+            
             self.running_gradient_average += (current_gradient - self.running_gradient_average) / self.gradient_counts
 
-            precentage = (current_gradient - (1.1 *self.running_gradient_average)) / (1.1 * self.running_gradient_average)
+            if self.running_gradient_average != 0:
+                precentage = (current_gradient - (1.1 *self.running_gradient_average)) / (1.1 * self.running_gradient_average)
+            else:
+                precentage = (current_gradient - self.running_gradient_average) / self.running_gradient_average
 
-            total_score += (mt.pow(precentage, 3) + mt.pow(precentage, 2) + mt.pow(precentage, 1)) / (mt.exp(precentage))
+            total_score += (mt.pow(precentage, 3) + mt.pow(precentage, 2) + mt.pow(precentage, 1)) / (mt.exp(precentage)) * 1000
+            print(f'additional score: {1000 * (mt.pow(precentage, 3) + mt.pow(precentage, 2) + mt.pow(precentage, 1)) / (mt.exp(precentage))}')
 
 
             self.previous_total_scoring = self.total_scoring
