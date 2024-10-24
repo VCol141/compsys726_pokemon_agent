@@ -31,6 +31,8 @@ class PokemonEnvironment(PyboyEnvironment):
             release_button=release_button,
             headless=headless,
         )
+    
+        self.current_button = None
 
     @cached_property
     def min_action_value(self) -> float:
@@ -67,6 +69,8 @@ class PokemonEnvironment(PyboyEnvironment):
         # We need to convert this to an action that the emulator can understand
         bins = np.linspace(0, 1, len(self.valid_actions) + 1)
         button = np.digitize(action, bins) - 1
+
+        self.current_button = button
 
         # Push the button for a few frames
         self.pyboy.send_input(self.valid_actions[button])

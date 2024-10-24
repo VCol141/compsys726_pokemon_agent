@@ -63,37 +63,26 @@ class PokemonBrock(PokemonEnvironment):
         self.all_previous_maps = []
         self.total_distance = 0
         self.total_scoring = 0
+        self.previous_position_from_origin = 0
 
-        self.gradient_counts = 0
-        self.running_gradient_average = 0
-        self.total_distance = 0
-        self.total_scoring = 0
-        self.previous_total_scoring = 0
-        self.previous_total_distance = 0
-        self.run_span = 1000
+        self.map_history = []
+        self.distance_history = []
+        self.score_history = []
+        self.grad_history = []
+
+        self.down_presses = 0
+        self.left_presses = 0
+        self.right_presses = 0
+        self.up_presses = 0
+        self.a_presses = 0
+        self.b_presses = 0
+        self.start_presses = 0
+        self.select_presses = 0
+        self.other_presses = 0
+
+        self.run_span = 10000
 
         self.reset_game_stats()
-
-    def update_gradients(self):
-        # Calculate gradient based on the changes
-        if self.total_distance != self.previous_total_distance:
-            current_gradient = (self.total_scoring - self.previous_total_scoring) / (self.total_distance - self.previous_total_distance)
-            # Update running average
-            self.gradient_counts += 1
-            self.running_gradient_average += (current_gradient - self.running_gradient_average) / self.gradient_counts
-        # Update previous scores and distances for the next calculation
-
-        # print(f"total_distance: {self.total_distance}, previous_total_distance: {self.previous_total_distance}, total_scoring: {self.total_scoring}, previous_total_scoring: {self.previous_total_scoring}")
-
-        if self.total_distance != self.previous_total_distance:
-            self.previous_total_scoring = self.total_scoring
-            self.previous_total_distance = self.total_distance
-            return current_gradient
-        
-        self.previous_total_scoring = self.total_scoring
-        self.previous_total_distance = self.total_distance
-        
-        return 0
 
     def reset_game_stats(self):
         self.current_hp = 0
@@ -111,6 +100,16 @@ class PokemonBrock(PokemonEnvironment):
         self.position_history.clear()
         self.total_distance = 0
         self.total_scoring = 0
+        self.previous_position_from_origin = 0
+        self.down_presses = 0
+        self.left_presses = 0
+        self.right_presses = 0
+        self.up_presses = 0
+        self.a_presses = 0
+        self.b_presses = 0
+        self.start_presses = 0
+        self.select_presses = 0
+        self.other_presses = 0
 
     def _get_state(self) -> np.ndarray:
         game_stats = self._generate_game_stats()
@@ -132,7 +131,6 @@ class PokemonBrock(PokemonEnvironment):
         return np.concatenate((state_vector, game_area))
 
     def _calculate_reward(self, new_state: dict) -> float:
-        game_location = self._get_location()
         game_stats = self._generate_game_stats()
 
         total_score = 0
@@ -141,8 +139,6 @@ class PokemonBrock(PokemonEnvironment):
         current_xp = np.array(game_stats["xp"]).sum()
         current_badges = game_stats["badges"]
         current_money = game_stats["money"]
-
-        
 
         # Score changes in levels, HP, XP, badges, and money
         if current_levels_sum > self.current_level:
@@ -158,6 +154,78 @@ class PokemonBrock(PokemonEnvironment):
 
         self.update_game_stats(
             current_levels_sum, current_hp, current_xp, current_badges, current_money)
+
+        total_score += self._Update_Distance()
+
+        total_score += self.button_update()
+        
+        self.total_scoring += total_score
+
+        if self.steps == (self.run_span - 1):
+            total_score += self.run_evaluation()
+
+        return total_score
+    
+    def button_update(self):
+        if self.current_button == WindowEvent.PRESS_ARROW_DOWN:
+            self.down_presses += 1
+        elif self.current_button == WindowEvent.PRESS_ARROW_LEFT:
+            self.left_presses += 1
+        elif self.current_button == WindowEvent.PRESS_ARROW_RIGHT:
+            self.right_presses += 1
+        elif self.current_button == WindowEvent.PRESS_ARROW_UP:
+            self.up_presses += 1
+        elif self.current_button == WindowEvent.PRESS_BUTTON_A:
+            self.a_presses += 1
+        elif self.current_button == WindowEvent.PRESS_BUTTON_B:
+            self.b_presses += 1
+        elif self.current_button == WindowEvent.PRESS_BUTTON_START:
+            self.start_presses += 1
+        elif self.current_button == WindowEvent.PRESS_BUTTON_SELECT:
+            self.select_presses += 1
+        else:  
+            self.other_presses += 1
+        
+        if self.current_button not in self.valid_actions:
+            return -50
+        
+        return 0
+
+
+    def run_evaluation(self):
+
+        game_location = self._get_location()
+        x, y, map_id = game_location['x'], game_location['y'], game_location['map_id']
+
+        total_distance = self.total_distance
+        total_score = self.total_scoring
+
+        grad = total_score / total_distance
+
+        grad_score = (grad - (sum(self.grad_history) / len(self.grad_history))
+                      ) * 100 if len(self.grad_history) > 0 else 0
+        map_score = (len(self.rooms) - (sum(self.map_history) / len(self.map_history))
+                     ) * 200 if len(self.map_history) > 0 else 0
+        distance_score = (total_distance - (sum(self.distance_history) / len(
+            self.distance_history))) * 0.5 if len(self.distance_history) > 0 else 0
+        score_score = (total_score - (sum(self.score_history) / len(self.score_history))
+                       ) * 10 if len(self.score_history) > 0 else 0
+
+        self.grad_history.append(grad)
+        self.map_history.append(len(self.rooms))
+        self.distance_history.append(total_distance)
+        self.score_history.append(total_score)
+
+        print(f"Grad: {grad_score}, Map: {map_score}, Distance: {distance_score}, Score: {score_score}, total_score: {grad_score + map_score + distance_score + score_score}")
+        print(f'up button: {self.up_presses}, down button: {self.down_presses}, left button: {self.left_presses}, right button: {self.right_presses}, a button: {self.a_presses}, b button: {self.b_presses}, start button: {self.start_presses}, select button: {self.select_presses}, other button: {self.other_presses}')
+
+        return grad_score + map_score + distance_score + score_score
+
+    def _Update_Distance(self):
+
+        total_score = 0
+
+        game_location = self._get_location()
 
         # Position-based reward logic
         x, y, map_id = game_location['x'], game_location['y'], game_location['map_id']
@@ -175,23 +243,20 @@ class PokemonBrock(PokemonEnvironment):
         if map_id not in self.rooms:
             self.rooms.append(map_id)
             self.locations[map_id] = [current_position]
-            total_score += 5
-            # print("map found")
         else:
             map_locations = self.locations.get(map_id, [])
 
             for (x, y) in map_locations:
-                distance = mt.sqrt((x - current_position[0])**2 + (y - current_position[1])**2)
+                distance = mt.sqrt(
+                    (x - current_position[0])**2 + (y - current_position[1])**2)
 
                 if distance <= 1.5:
                     under_flag = True
                     break
-            
+
             if not under_flag:
                 self.locations[map_id].append(current_position)
-                total_score += 1
                 # print("location found")
-
 
         under_flag = False
 
@@ -204,49 +269,28 @@ class PokemonBrock(PokemonEnvironment):
             map_locations = self.all_previous_positions.get(map_id, [])
 
             for (x, y) in map_locations:
-                distance = mt.sqrt((x - current_position[0])**2 + (y - current_position[1])**2)
+                distance = mt.sqrt(
+                    (x - current_position[0])**2 + (y - current_position[1])**2)
 
                 if distance <= 3.5:
                     under_flag = True
                     break
-            
+
             if not under_flag:
                 self.all_previous_positions[map_id].append(current_position)
                 total_score += 5
-                # print("New location found")
         
-        self.total_distance += mt.sqrt((current_position[0] - self.previous_position[0])**2 + (current_position[1] - self.previous_position[1])**2)
-        self.total_scoring += total_score
+        current_position_from_origin = mt.sqrt(current_position[0]**2 + current_position[1]**2)
+
+        total_score += (current_position_from_origin - self.previous_position_from_origin) * 5
+
+        self.previous_position_from_origin = current_position_from_origin
+
+        self.total_distance += mt.sqrt((current_position[0] - self.previous_position[0])**2 + (
+            current_position[1] - self.previous_position[1])**2)
         
+
         self.previous_position = current_position
-
-        
-        if self.steps == (self.run_span - 1):
-            current_gradient = (self.total_scoring - self.previous_total_scoring) / (self.total_distance - self.previous_total_distance)
-            # Update running average
-            self.gradient_counts += 1
-            
-            self.running_gradient_average += (current_gradient - self.running_gradient_average) / self.gradient_counts
-
-            if self.running_gradient_average != 0:
-                precentage = (current_gradient - (1.1 *self.running_gradient_average)) / (1.1 * self.running_gradient_average)
-            else:
-                precentage = (current_gradient - self.running_gradient_average) / self.running_gradient_average
-
-            total_score += (mt.pow(precentage, 3) + mt.pow(precentage, 2) + mt.pow(precentage, 1)) / (mt.exp(precentage)) * 1000
-            print(f'additional score: {1000 * (mt.pow(precentage, 3) + mt.pow(precentage, 2) + mt.pow(precentage, 1)) / (mt.exp(precentage))}')
-
-
-            self.previous_total_scoring = self.total_scoring
-            self.previous_total_distance = self.total_distance
-            # print(f'current_score: {total_score}, running_gradient_average: {self.running_gradient_average}, total_distance: {self.total_distance}, total_scoring: {self.total_scoring}')
-
-        if self.current_action in [WindowEvent.PRESS_ARROW_DOWN, WindowEvent.PRESS_ARROW_LEFT, WindowEvent.PRESS_ARROW_RIGHT, WindowEvent.PRESS_ARROW_UP]:
-            if current_position == self.previous_position:
-                total_score -= 1  # Penalize for no movement
-
-    
-
 
         return total_score
 
@@ -259,6 +303,8 @@ class PokemonBrock(PokemonEnvironment):
 
     def _check_if_done(self, game_stats: dict[str, any]) -> bool:
         # Setting done to true if agent beats first gym (temporary)
+        # if self.total_steps_done >= (20000 * 20):
+        #     return True
         return game_stats["badges"] > self.prior_game_stats["badges"]
 
     def _check_if_truncated(self, game_stats: dict) -> bool:

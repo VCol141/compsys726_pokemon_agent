@@ -47,6 +47,7 @@ class PyboyEnvironment(metaclass=ABCMeta):
         self.screen = self.pyboy.screen
 
         self.steps = 0
+        self.total_steps_done = 0
 
         self.seed = 0
 
@@ -83,6 +84,7 @@ class PyboyEnvironment(metaclass=ABCMeta):
 
     def step(self, action) -> tuple:
         self.steps += 1
+        self.total_steps_done += 1
 
         self.current_action = action
 
