@@ -131,29 +131,9 @@ class PokemonBrock(PokemonEnvironment):
         return np.concatenate((state_vector, game_area))
 
     def _calculate_reward(self, new_state: dict) -> float:
-        game_stats = self._generate_game_stats()
-
         total_score = 0
-        current_levels_sum = np.array(game_stats["levels"]).sum()
-        current_hp = np.array(game_stats["hp"]["current"]).sum()
-        current_xp = np.array(game_stats["xp"]).sum()
-        current_badges = game_stats["badges"]
-        current_money = game_stats["money"]
 
-        # Score changes in levels, HP, XP, badges, and money
-        if current_levels_sum > self.current_level:
-            total_score += (current_levels_sum - self.current_level) * 0.5
-        if current_hp > self.current_hp:
-            total_score += (current_hp - self.current_hp) * 0.5
-        if current_xp > self.current_xp:
-            total_score += (current_xp - self.current_xp) * 0.5
-        if current_badges > self.current_badges:
-            total_score += (current_badges - self.current_badges) * 0.5
-        if current_money > self.current_money:
-            total_score += (current_money - self.current_money) * 0.5
-
-        self.update_game_stats(
-            current_levels_sum, current_hp, current_xp, current_badges, current_money)
+        total_score += self.reward_function(new_state)
 
         total_score += self._Update_Distance()
 
@@ -185,9 +165,7 @@ class PokemonBrock(PokemonEnvironment):
             self.select_presses += 1
         else:  
             self.other_presses += 1
-        
-        if self.current_button not in self.valid_actions:
-            return -50
+            return -5
         
         return 0
 
@@ -220,6 +198,39 @@ class PokemonBrock(PokemonEnvironment):
         print(f'up button: {self.up_presses}, down button: {self.down_presses}, left button: {self.left_presses}, right button: {self.right_presses}, a button: {self.a_presses}, b button: {self.b_presses}, start button: {self.start_presses}, select button: {self.select_presses}, other button: {self.other_presses}')
 
         return grad_score + map_score + distance_score + score_score
+    
+    def reward_function(self, new_state: dict) -> float:
+        total_score = 0
+
+        game_stats = self._generate_game_stats()
+        
+        current_levels_sum = np.array(game_stats["levels"]).sum()
+        current_hp = np.array(game_stats["hp"]["current"]).sum()
+        current_xp = np.array(game_stats["xp"]).sum()
+        current_badges = game_stats["badges"]
+        current_money = game_stats["money"]
+
+        total_score += self._caught_reward(new_state)
+        total_score += self._seen_reward(new_state)
+        total_score += self._event_reward(new_state)
+
+        # Score changes in levels, HP, XP, badges, and money
+        if current_levels_sum > self.current_level:
+            total_score += (current_levels_sum - self.current_level) * 0.5
+        if current_hp > self.current_hp:
+            total_score += (current_hp - self.current_hp) * 0.5
+        if current_xp > self.current_xp:
+            total_score += (current_xp - self.current_xp) * 0.5
+        if current_badges > self.current_badges:
+            total_score += (current_badges - self.current_badges) * 0.5
+        if current_money > self.current_money:
+            total_score += (current_money - self.current_money) * 0.5
+
+        self.update_game_stats(
+            current_levels_sum, current_hp, current_xp, current_badges, current_money)
+        
+        return total_score
+
 
     def _Update_Distance(self):
 
