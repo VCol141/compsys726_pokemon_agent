@@ -31,8 +31,6 @@ class PokemonEnvironment(PyboyEnvironment):
             release_button=release_button,
             headless=headless,
         )
-    
-        self.current_button = None
 
     @cached_property
     def min_action_value(self) -> float:
@@ -70,6 +68,7 @@ class PokemonEnvironment(PyboyEnvironment):
         bins = np.linspace(0, 1, len(self.valid_actions) + 1)
         button = np.digitize(action, bins) - 1
 
+        # Save pushed button
         self.current_button = button
 
         # Push the button for a few frames
@@ -98,6 +97,7 @@ class PokemonEnvironment(PyboyEnvironment):
             "seen_pokemon": self._read_seen_pokemon_count(),
             "money": self._read_money(),
             "events": self._read_events(),
+            "in_battle": self._is_in_battle(),  # Add battle state to game stats
         }
 
     @abstractmethod
@@ -212,6 +212,7 @@ class PokemonEnvironment(PyboyEnvironment):
             list(self._bit_count(self._read_m(i)) for i in range(0xD30A, 0xD31D))
         )
 
+    # dont need this
     def _read_money(self) -> int:
         return (
             100 * 100 * self._read_bcd(self._read_m(0xD347))
@@ -300,3 +301,10 @@ class PokemonEnvironment(PyboyEnvironment):
 
     def _event_reward(self, new_state: dict[str, any]) -> int:
         return sum(new_state["events"]) - sum(self.prior_game_stats["events"])
+    
+    # Check if the game state is in a battle
+    def _is_in_battle(self) -> int:
+            # 0: Not in battle
+            # 1: Wild pokemon Battle
+            # 2: Trainer Battle
+            return self._read_m(0xD057)
