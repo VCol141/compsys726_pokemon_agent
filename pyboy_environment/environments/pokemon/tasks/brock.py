@@ -110,7 +110,7 @@ class PokemonBrock(PokemonEnvironment):
         game_location = self._get_location()
 
         # Construct the main state vector
-        state_vector = np.array([
+        state_vector = np.array([ 
             np.array(game_stats["hp"]["current"]).sum(),
             np.array(game_stats["xp"])[0],
             game_stats["money"],
@@ -121,10 +121,6 @@ class PokemonBrock(PokemonEnvironment):
         ])
 
         return state_vector
-        # Flatten the game area if needed, then concatenate
-        game_area_array = np.array(self.game_area()).ravel()
-
-        return np.concatenate((state_vector, game_area_array))
 
 
     def _calculate_reward(self, new_state: dict) -> float:
