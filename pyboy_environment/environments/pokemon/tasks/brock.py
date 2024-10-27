@@ -30,6 +30,7 @@ class PokemonBrock(PokemonEnvironment):
             WindowEvent.RELEASE_BUTTON_START,
         ]
 
+
         super().__init__(
             act_freq=act_freq,
             task="brock",
@@ -65,8 +66,12 @@ class PokemonBrock(PokemonEnvironment):
         self.map_index = self.current_map_index = 0
         self.max_d = [0] * len(self.map_sequence)
         self.buffer_position = (0, 0)
-        self.run_span = 2000
+        self.run_span = 1000
 
+        self.bad_positions = [[40, 4, 1],
+                              [0, 1, 17]]
+        self.previous_position_bad = [0] * len(self.map_sequence)
+        self.button_presses = [0] * 10
         self.reset_game_stats()
 
     def reset_game_stats(self):
@@ -89,6 +94,7 @@ class PokemonBrock(PokemonEnvironment):
         self.distance_history = []
         self.score_history = []
         self.grad_history = []
+        self.button_presses = [0] * 10
 
         # Action press counters
         self.down_presses = self.left_presses = self.right_presses = 0
@@ -103,6 +109,7 @@ class PokemonBrock(PokemonEnvironment):
         game_stats = self._generate_game_stats()
         game_location = self._get_location()
 
+        # Construct the main state vector
         state_vector = np.array([
             np.array(game_stats["hp"]["current"]).sum(),
             np.array(game_stats["xp"])[0],
@@ -114,6 +121,11 @@ class PokemonBrock(PokemonEnvironment):
         ])
 
         return state_vector
+        # Flatten the game area if needed, then concatenate
+        game_area_array = np.array(self.game_area()).ravel()
+
+        return np.concatenate((state_vector, game_area_array))
+
 
     def _calculate_reward(self, new_state: dict) -> float:
         total_score = self.reward_function(new_state)
@@ -121,7 +133,7 @@ class PokemonBrock(PokemonEnvironment):
         total_score += self.button_update()
 
         if self.steps % 100 == 0:
-            total_score += self.run_evaluation()
+            total_score += self.run_evaluation() * 0.1
 
         self.total_scoring += total_score
         return total_score
@@ -144,7 +156,7 @@ class PokemonBrock(PokemonEnvironment):
             return 0
         else:
             self.other_presses += 1
-            return -5
+            return -50
 
     def saturate(self, value, min_val, max_val):
         return max(min_val, min(value, max_val))
@@ -174,17 +186,16 @@ class PokemonBrock(PokemonEnvironment):
 
         reward_multipliers = {
             "levels": 0.5,
-        "hp": 0.5,
-        "xp": 0.5,
-        "badges": 0.5,
-        "money": 0.5,
-        "in_battle": [500, 1000]  # First index for battle, second for completion
+            "hp": 0.5,
+            "xp": 0.5,
+            "badges": 0.5,
+            "money": 0.5,
+            "in_battle": [500, 1000]  # First index for battle, second for completion
         }
     
         # Calculate rewards based on 'in_battle' status
         total_score = (
-            reward_multipliers["in_battle"][game_stats["in_battle"] - 1]
-            if game_stats["in_battle"] > 0 else 0
+            reward_multipliers["in_battle"][game_stats["in_battle"] - 1] if game_stats["in_battle"] > 0 else 0
         )
     
         # Calculate rewards for other stats
@@ -255,6 +266,26 @@ class PokemonBrock(PokemonEnvironment):
             (current_position[0] - self.previous_position[0])**2 +
             (current_position[1] - self.previous_position[1])**2
         )
+
+        for positions in self.bad_positions:
+            if map_id == positions[0]:
+                position = mt.sqrt((current_position[0] - positions[1])**2 + (current_position[1] - positions[2])**2)
+                print
+                if position < 2:
+                    total_score -= 100
+
+                a = (-self.previous_position_bad[self.current_map_index] + position) * 100 if position < 20 else 0
+                b = 0
+
+                if map_id == 40:
+                    b += (- self.previous_position[1] + current_position[1])
+                elif map_id == 0:
+                    b += (- current_position[1] + self.previous_position[1])
+
+                total_score += (a + b)
+                self.previous_position_bad[self.current_map_index] = position
+                break
+        
         self.previous_position = current_position
 
         return total_score
@@ -280,7 +311,8 @@ class PokemonBrock(PokemonEnvironment):
         self.current_badges, self.current_money = badges, money
 
     def _check_if_done(self, game_stats: dict[str, any]) -> bool:
-        return game_stats["badges"] > self.prior_game_stats["badges"]
+
+        return (self.total_steps_done > self.run_span *  2 * 10 * 5) or game_stats["badges"] > self.prior_game_stats["badges"]
 
     def _check_if_truncated(self, game_stats: dict) -> bool:
         if self.steps >= self.run_span:

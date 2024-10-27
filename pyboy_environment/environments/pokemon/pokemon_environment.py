@@ -32,6 +32,7 @@ class PokemonEnvironment(PyboyEnvironment):
             headless=headless,
         )
 
+
     @cached_property
     def min_action_value(self) -> float:
         return 0
