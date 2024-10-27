@@ -66,7 +66,7 @@ class PokemonBrock(PokemonEnvironment):
         self.map_index = self.current_map_index = 0
         self.max_d = [0] * len(self.map_sequence)
         self.buffer_position = (0, 0)
-        self.run_span = 1000
+        self.run_span = 5000
 
         self.bad_positions = [[40, 4, 1],
                               [0, 1, 17]]
